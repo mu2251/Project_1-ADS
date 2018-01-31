@@ -1,20 +1,17 @@
 ---
-title: "Presidential Inaugural Speech Analyses"
+title: "Presidential Inaugural Speech Analysis, by Michael Utomo"
 output: html_notebook
 ---
 
-Plan:
-(1) Analyzing the whole presidential inaugural speech as a whole (providing the trends
-over time).
-(2) Analyzing American politics after 1980 through presidential inaugural speeches. 
-The analyses for the "storyline" are based on each parties, especially after the 
-1980. The speech analyses after 1980 are consequential because the historians claim that
-after 1980, there is a great shift in American politics. The Republican Party generally 
+Content:
+(1) Analysis of the number of words in a sentence presidential speeches.
+(2) Analysis of  American politics through presidential inaugural speeches. 
+The analysis for the "storyline" are based on each parties. The Republican Party generally 
 advocates for small-government, with the exception of security and borders. The 
 Democratic Party represents the big-government that generally concerns about welfare.
 In this qualitative analyses, we would like to show whether these generalization 
 is true or not. 
-(3) Analyzing speech by Founding Fathers. 
+(3) Speech analysis by the Founding Fathers. 
 
 Reference:
 Micklethwait, J., & Wooldridge, A. (2015). The fourth revolution: the global race to reinvent the state. New York, NY: Penguin Books. 
@@ -159,90 +156,10 @@ beeswarm(word.count~FileOrdered,
          main="Presidential speeches")
 
 ```
-Plot the word length of a sentence according to time
-#Maybe earlier presidents used longer sentences
 
-6.) Sentiment Analysis
-```{r}
-presidentNames <- unique(sentence.list$File)
-for(i in 1:length(presidentNames)){
-        print(i)
-        if(presidentNames[i] == 'GroverCleveland-II'){
-        f.plotsent.len(In.list=sentence.list, InFile=presidentNames[i], 
-                       InType="inaug", InTerm=2, President=presidentNames[i])  
-        }
-        else{
-        f.plotsent.len(In.list=sentence.list, InFile=presidentNames[i], 
-                       InType="inaug", InTerm=1, President=presidentNames[i])  
-        }
-        }
-```
+6.) Topic Modelling
 
-Emotionally charged sentences per president:
-```{r}
-for(i in 1: length(presidentNames)){
-print(presidentNames[i])
-speech.df=tbl_df(sentence.list)%>%
-  filter(File==presidentNames[i], type=="inaug", word.count>=4)%>%
-  select(sentences, anger:trust)
-speech.df=as.data.frame(speech.df)
-print(as.character(speech.df$sentences[apply(speech.df[,-1], 2, which.max)]))
-print("")
-}
-```
-
-Clustering of emotions: (from Tutorials)
-```{r, fig.width=2, fig.height=2}
-heatmap.2(cor(sentence.list%>%filter(type=="inaug")%>%select(anger:trust)), 
-          scale = "none", 
-          col = bluered(100), , margin=c(6, 6), key=F,
-          trace = "none", density.info = "none")
-
-par(mar=c(4, 6, 2, 1))
-emo.means=colMeans(select(sentence.list, anger:trust)>0.01)
-col.use=c("red2", "darkgoldenrod1", 
-            "chartreuse3", "blueviolet",
-            "darkgoldenrod2", "dodgerblue3", 
-            "darkgoldenrod1", "darkgoldenrod1")
-barplot(emo.means[order(emo.means)], las=2, col=col.use[order(emo.means)], horiz=T, main="Inaugural Speeches")
-```
-```{r, fig.height=3.3, fig.width=3.7}
-presid.summary=tbl_df(sentence.list)%>%
-  filter(type=="inaug")%>%
-  #group_by(paste0(type, File))%>%
-  group_by(File)%>%
-  summarise(
-    anger=mean(anger),
-    anticipation=mean(anticipation),
-    disgust=mean(disgust),
-    fear=mean(fear),
-    joy=mean(joy),
-    sadness=mean(sadness),
-    surprise=mean(surprise),
-    trust=mean(trust)
-    #negative=mean(negative),
-    #positive=mean(positive)
-  )
-
-presid.summary=as.data.frame(presid.summary)
-rownames(presid.summary)=as.character((presid.summary[,1]))
-km.res=kmeans(presid.summary[,-1], iter.max=200,
-              5)
-fviz_cluster(km.res, 
-             stand=F, repel= TRUE,
-             data = presid.summary[,-1], xlab="", xaxt="n",
-             show.clust.cent=FALSE)
-```
-
-Sort Presidents based on emotions
-```{r}
-presid.summary[order(presid.summary$fear),]
-presid.summary[order(presid.summary$joy),]
-```
-
-7.) Topic Modelling
-
-Divide topic based on political parties 
+Divide topic based on political parties and Founding Fathers
 
 ```{r}
 rep.sentence.list = sentence.list[sentence.list$Party == 'Republican',]
@@ -257,7 +174,7 @@ fathers.list$Party <- 'FoundingFathers'
 political.list <- list(rep.sentence.list, dem.sentence.list, fathers.list)
 ```
 
-Party LDA
+LDA
 ```{r}
 for (i in 1:length(political.list)){
         this.list <- political.list[[i]]
@@ -301,7 +218,7 @@ for (i in 1:length(political.list)){
         docs <- tm_map(docs,stemDocument)
         
         
-        ### Topic modeling
+        ### Topic modelling
         dtm <- DocumentTermMatrix(docs)
         #convert rownames to filenames#convert rownames to filenames
         rownames(dtm) <- paste(corpus.list$type, corpus.list$File,
@@ -315,15 +232,15 @@ for (i in 1:length(political.list)){
         
         # Run LDA
         #Set parameters for Gibbs sampling
-        burnin <- 0
-        iter <- 100
+        burnin <- 20
+        iter <- 2000
         thin <- 50
         seed <- 013018
         nstart <- 1
         best <- TRUE
         
         #Number of topics
-        k <- 8
+        k <- 9
         
         #Run LDA using Gibbs sampling
         ldaOut <-LDA(dtm, k, method="Gibbs", control=list(nstart=nstart, 
@@ -336,7 +253,7 @@ for (i in 1:length(political.list)){
         table(c(1:k, ldaOut.topics))
         write.csv(ldaOut.topics,file=paste0("LDAGibbs",k,this.party,"DocsToTopics.csv"))
       
-        #top 6 terms in each topic
+        #top 20 terms in each topic
         ldaOut.terms <- as.matrix(terms(ldaOut,20))
         write.csv(ldaOut.terms,file=paste0("LDAGibbs",k,this.party,"TopicsToTerms.csv"))
         print(paste("Words Distributions for ", this.party))
@@ -348,145 +265,10 @@ for (i in 1:length(political.list)){
 
 ```
 
-
-
+7.) Analysis of the most words used using WordCloud
+WordCloud for Democratic Party:
 ```{r}
-corpus.list=sentence.list[2:(nrow(sentence.list)-1), ]
-sentence.pre=sentence.list$sentences[1:(nrow(sentence.list)-2)]
-sentence.post=sentence.list$sentences[3:(nrow(sentence.list)-1)]
-corpus.list$snipets=paste(sentence.pre, corpus.list$sentences, sentence.post, sep=" ")
-rm.rows=(1:nrow(corpus.list))[corpus.list$sent.id==1]
-rm.rows=c(rm.rows, rm.rows-1)
-corpus.list=corpus.list[-rm.rows, ]
-```
-
-Text mining
-```{r}
-docs <- Corpus(VectorSource(corpus.list$snipets))
-writeLines(as.character(docs[[sample(1:nrow(corpus.list), 1)]]))
-```
-
-Basic text processing
-```{r}
-#remove potentially problematic symbols
-docs <-tm_map(docs,content_transformer(tolower))
-writeLines(as.character(docs[[sample(1:nrow(corpus.list), 1)]]))
-
-#remove punctuation
-docs <- tm_map(docs, removePunctuation)
-writeLines(as.character(docs[[sample(1:nrow(corpus.list), 1)]]))
-
-#Strip digits
-docs <- tm_map(docs, removeNumbers)
-writeLines(as.character(docs[[sample(1:nrow(corpus.list), 1)]]))
-
-#remove stopwords
-docs <- tm_map(docs, removeWords, stopwords("english"))
-writeLines(as.character(docs[[sample(1:nrow(corpus.list), 1)]]))
-
-#remove whitespace
-docs <- tm_map(docs, stripWhitespace)
-writeLines(as.character(docs[[sample(1:nrow(corpus.list), 1)]]))
-
-#Stem document
-docs <- tm_map(docs,stemDocument)
-writeLines(as.character(docs[[sample(1:nrow(corpus.list), 1)]]))
-```
-
-
-
-
-
-Topic modelling
-```{r}
-dtm <- DocumentTermMatrix(docs)
-#convert rownames to filenames#convert rownames to filenames
-rownames(dtm) <- paste(corpus.list$type, corpus.list$File,
-                       corpus.list$Term, corpus.list$sent.id, sep="_")
-
-rowTotals <- apply(dtm , 1, sum) #Find the sum of words in each Document
-
-dtm  <- dtm[rowTotals> 0, ]
-corpus.list=corpus.list[rowTotals>0, ]
-
-```
-
-Run LDA
-
-```{r}
-#Set parameters for Gibbs sampling
-burnin <- 0
-iter <- 100
-thin <- 50
-seed <- 013018
-nstart <- 1
-best <- TRUE
-
-#Number of topics
-k <- 9
-
-#Run LDA using Gibbs sampling
-ldaOut <-LDA(dtm, k, method="Gibbs", control=list(nstart=nstart, 
-                                                 seed = seed, best=best,
-                                                 burnin = burnin, iter = iter, 
-                                                 thin=thin))
-```
-
-```{r}
-#write out results
-#docs to topics
-ldaOut.topics <- as.matrix(topics(ldaOut))
-table(c(1:k, ldaOut.topics))
-write.csv(ldaOut.topics,file=paste("../out/LDAGibbs",k,"DocsToTopics.csv"))
-
-#top 6 terms in each topic
-ldaOut.terms <- as.matrix(terms(ldaOut,20))
-write.csv(ldaOut.terms,file=paste("../out/LDAGibbs",k,"TopicsToTerms.csv"))
-
-#probabilities associated with each topic assignment
-topicProbabilities <- as.data.frame(ldaOut@gamma)
-write.csv(topicProbabilities,file=paste("../out/LDAGibbs",k,"TopicProbabilities.csv"))
-
-#LDA Terms
-ldaOut.terms
-```
-
-```{r}
-#docs to topics
-        ldaOut.topics <- as.matrix(topics(ldaOut))
-        table(c(1:k, ldaOut.topics))
-        write.csv(ldaOut.topics,file=paste0("LDAGibbs",k,this.party,"DocsToTopics.csv"))
-        
-        #top 6 terms in each topic
-        ldaOut.terms <- as.matrix(terms(ldaOut,20))
-        write.csv(ldaOut.terms,file=paste0("LDAGibbs",k,this.party,"TopicsToTerms.csv"))
-        
-        #probabilities associated with each topic assignment
-        topicProbabilities <- as.data.frame(ldaOut@gamma)
-        write.csv(topicProbabilities,file=paste0("LDAGibbs",k,this.party,"TopicProbabilities.csv"))
-```
-
-```{r}
-terms.beta=ldaOut@beta
-terms.beta=scale(terms.beta)
-topics.terms=NULL
-for(i in 1:k){
-  topics.terms=rbind(topics.terms, ldaOut@terms[order(terms.beta[i,], decreasing = TRUE)[1:7]])
-}
-topics.terms
-ldaOut.terms
-```
-
-
-
-
-
-
-
-
-
-
-```{r}
+#Read the file
 library(tidytext)
 library(wordcloud)
 preprocess_data<- function(sentence.list){
@@ -510,7 +292,7 @@ preprocess_data<- function(sentence.list){
   #Stem document
   docs <- tm_map(docs,stemDocument)
 }
-
+#Creating the WordCloud
 docs <- preprocess_data(dem.sentence.list)
 tdm.all<-TermDocumentMatrix(docs)
 tdm.tidy=tidy(tdm.all)
@@ -518,7 +300,7 @@ tdm.overall=summarise(group_by(tdm.tidy, term), sum(count))
 
 wordcloud(tdm.overall$term, tdm.overall$`sum(count)`,
           scale=c(4,0.5),
-          max.words=100,
+          max.words=50,
           min.freq=1,
           random.order=FALSE,
           rot.per=0.3,
@@ -528,6 +310,114 @@ wordcloud(tdm.overall$term, tdm.overall$`sum(count)`,
          )
 
 ```
+
+WordCloud for Republican Party:
+```{r}
+#Read the file
+library(tidytext)
+library(wordcloud)
+preprocess_data<- function(sentence.list){
+  
+  docs <- Corpus(VectorSource(corpus.list$snipets))
+  #remove potentially problematic symbols
+  docs <-tm_map(docs,content_transformer(tolower))
+  
+  #remove punctuation
+  docs <- tm_map(docs, removePunctuation)
+  
+  #Strip digits
+  docs <- tm_map(docs, removeNumbers)
+  
+  #remove stopwords
+  docs <- tm_map(docs, removeWords, stopwords("english"))
+  
+  #remove whitespace
+  docs <- tm_map(docs, stripWhitespace)
+  
+  #Stem document
+  docs <- tm_map(docs,stemDocument)
+}
+#Creating the WordCloud
+docs <- preprocess_data(rep.sentence.list)
+tdm.all<-TermDocumentMatrix(docs)
+tdm.tidy=tidy(tdm.all)
+tdm.overall=summarise(group_by(tdm.tidy, term), sum(count))
+
+wordcloud(tdm.overall$term, tdm.overall$`sum(count)`,
+          scale=c(4,0.5),
+          max.words=50,
+          min.freq=1,
+          random.order=FALSE,
+          rot.per=0.3,
+          use.r.layout=T,
+          random.color=FALSE,
+          colors=brewer.pal(9,"Blues")
+         )
+
+```
+
+Analysis:
+1.) From the graph from part (5), it is clear that the number of words in the sentences
+in the sentences in presidential speeches are decreasing over time.
+
+2.) The analysis of the Republican ideology based on topic modelling:
+
+-Freedom
+Republicans generally prefers freedom compared to anything else. This what differentiates 
+Republicans and Democrats. The way they defines freedom is that the government should not 
+interfere with peoples' life. From the first column, it is clear the central tenents of 
+Republican ideology, faith and freedom.
+
+-Faith
+This is central to Republican Party's ideology that it promotes social conservatism. Social 
+conservatism generally promotes preservation of traditional religious beliefs. In this case,
+the words are similar to what religious people talk about, in particular Christianity. 
+
+-Free Market
+The Republican Party encourages free trade as its economic policies. From Topic 6, it is clear 
+that the words that are related to that: trade, business, increase, import. 
+
+-Security/Defense
+From Topic 4, it is clear that security is the platform for the Republicans. There is a big 
+faction of Republican Party called neoconservatism. Neoconservatism ideology promotes high 
+security for the world provided by American military.The topic 4 represents the 
+words that are related to country, world, and security issues. 
+
+3.) The analysis of the Democratic ideology based on topic modelling:
+
+-Progessivism
+The Democratic Party represents the progress of America. This goes back to their main 
+ideology of social liberalism. The party is currently supporting LGBT rights, affirmative 
+action, path of citizenship for illegal/undocumented immigrants. From Tppic 1 and 5, it is 
+clear that there are words like progressive, new, change. 
+
+-Equality
+This is related to progressivism that I have described above. From Topic 4, it is clear that
+this is the case because equality is in the same bracket as the government. The Democratic 
+Party believes that the government's job is to provide social equity for all citizens. 
+
+4.) The analysis of Founding fathers' ideology based on topic modelling:
+
+-Function of government
+State, consitute, Happy, love in Topic 2 provides what the Founding Fathers' belief 
+about function of government. In the Declaration of Independence, the founding fathers'
+wrote about the function of government is to provide life, liberty, and the pursuit of 
+happiness. 
+
+-Independence
+At that time, the United States is still a new country and they just had war with Britain.
+So, in topic 3, they are talking about building a new country after war. Words that 
+are associated with independence are nation, war, success. 
+
+-Rationalism/Deism
+This was what the founding fathers' belief with general population in that time. Founding 
+Fathers that became presidents mostly believed that rationalism trumps everything. This 
+evidence is corroborated by the fact that they are all deists. Deists believes that anything
+should be explained in rational and empirical sense. This is clear from Topic 9. 
+
+5.) WordCloud:
+There is no sufficient evidence that we can find about the difference about most used 
+words between two major parties in America right now. 
 
 
 
