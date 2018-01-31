@@ -10,14 +10,11 @@ The analysis for the "storyline" are based on each parties. The Republican Party
 advocates for small-government, with the exception of security and borders. The 
 Democratic Party represents the big-government that generally concerns about welfare.
 In this qualitative analyses, we would like to show whether these generalization 
-is true or not. 
+is true or not. This is done for Republicans and Democrats only, ignoring other
+major parties that existed in the US before them.
 (3) Speech analysis by the Founding Fathers. 
 
-Reference:
-Micklethwait, J., & Wooldridge, A. (2015). The fourth revolution: the global race to reinvent the state. New York, NY: Penguin Books. 
 
-Code Reference:
-Wk2-Tutorial-TextMining. (n.d.). Retrieved January 30, 2018, from https://github.com/TZstatsADS/ADS_Teaching/blob/master/Tutorials/wk2-TextMining/doc/wk2-Tutorial-TextMining.Rmd
 
 
 
@@ -162,8 +159,8 @@ beeswarm(word.count~FileOrdered,
 Divide topic based on political parties and Founding Fathers
 
 ```{r}
-rep.sentence.list = sentence.list[sentence.list$Party == 'Republican',]
-dem.sentence.list = sentence.list[sentence.list$Party == 'Democratic',]
+rep.sentence.list = subset(sentence.list, sentence.list$Party == 'Republican')
+dem.sentence.list = subset(sentence.list, sentence.list$Party == 'Democratic')
 
 ## Founding Fathers
 founding.fathers <- c('GeorgeWashington', 'JohnAdams', 'ThomasJefferson', 'JamesMadison')
@@ -265,14 +262,22 @@ for (i in 1:length(political.list)){
 
 ```
 
+
 7.) Analysis of the most words used using WordCloud
 WordCloud for Democratic Party:
 ```{r}
 #Read the file
 library(tidytext)
 library(wordcloud)
+#Preprocess the data
 preprocess_data<- function(sentence.list){
-  
+  corpus.list=sentence.list[2:(nrow(sentence.list)-1), ]
+  sentence.pre=sentence.list$sentences[1:(nrow(sentence.list)-2)]
+  sentence.post=sentence.list$sentences[3:(nrow(sentence.list)-1)]
+  corpus.list$snipets=paste(sentence.pre, corpus.list$sentences, sentence.post, sep=" ")
+  rm.rows=(1:nrow(corpus.list))[corpus.list$sent.id==1]
+  rm.rows=c(rm.rows, rm.rows-1)
+  corpus.list=corpus.list[-rm.rows, ]
   docs <- Corpus(VectorSource(corpus.list$snipets))
   #remove potentially problematic symbols
   docs <-tm_map(docs,content_transformer(tolower))
@@ -291,6 +296,8 @@ preprocess_data<- function(sentence.list){
   
   #Stem document
   docs <- tm_map(docs,stemDocument)
+  
+  return(docs)
 }
 #Creating the WordCloud
 docs <- preprocess_data(dem.sentence.list)
@@ -298,8 +305,12 @@ tdm.all<-TermDocumentMatrix(docs)
 tdm.tidy=tidy(tdm.all)
 tdm.overall=summarise(group_by(tdm.tidy, term), sum(count))
 
+tdm.overall[with(tdm.overall, order(-`sum(count)`)), ]
+
+tdm.overall <- tdm.overall[with(tdm.overall, order(-`sum(count)`)), ]
+tdm.overall <- tail(tdm.overall,-5) #Ignore the first 5 words
 wordcloud(tdm.overall$term, tdm.overall$`sum(count)`,
-          scale=c(4,0.5),
+          scale=c(3,0.5),
           max.words=50,
           min.freq=1,
           random.order=FALSE,
@@ -312,39 +323,19 @@ wordcloud(tdm.overall$term, tdm.overall$`sum(count)`,
 ```
 
 WordCloud for Republican Party:
+
 ```{r}
-#Read the file
-library(tidytext)
-library(wordcloud)
-preprocess_data<- function(sentence.list){
-  
-  docs <- Corpus(VectorSource(corpus.list$snipets))
-  #remove potentially problematic symbols
-  docs <-tm_map(docs,content_transformer(tolower))
-  
-  #remove punctuation
-  docs <- tm_map(docs, removePunctuation)
-  
-  #Strip digits
-  docs <- tm_map(docs, removeNumbers)
-  
-  #remove stopwords
-  docs <- tm_map(docs, removeWords, stopwords("english"))
-  
-  #remove whitespace
-  docs <- tm_map(docs, stripWhitespace)
-  
-  #Stem document
-  docs <- tm_map(docs,stemDocument)
-}
 #Creating the WordCloud
 docs <- preprocess_data(rep.sentence.list)
 tdm.all<-TermDocumentMatrix(docs)
 tdm.tidy=tidy(tdm.all)
 tdm.overall=summarise(group_by(tdm.tidy, term), sum(count))
+tdm.overall[with(tdm.overall, order(-`sum(count)`)), ]
 
+tdm.overall <- tdm.overall[with(tdm.overall, order(-`sum(count)`)), ]
+tdm.overall <- tail(tdm.overall,-5) #Ignore the first 5 top words
 wordcloud(tdm.overall$term, tdm.overall$`sum(count)`,
-          scale=c(4,0.5),
+          scale=c(3,0.5),
           max.words=50,
           min.freq=1,
           random.order=FALSE,
@@ -355,6 +346,7 @@ wordcloud(tdm.overall$term, tdm.overall$`sum(count)`,
          )
 
 ```
+
 
 Analysis:
 1.) From the graph from part (5), it is clear that the number of words in the sentences
@@ -402,7 +394,7 @@ Party believes that the government's job is to provide social equity for all cit
 State, consitute, Happy, love in Topic 2 provides what the Founding Fathers' belief 
 about function of government. In the Declaration of Independence, the founding fathers'
 wrote about the function of government is to provide life, liberty, and the pursuit of 
-happiness. 
+happiness to its citizens. 
 
 -Independence
 At that time, the United States is still a new country and they just had war with Britain.
@@ -416,11 +408,25 @@ evidence is corroborated by the fact that they are all deists. Deists believes t
 should be explained in rational and empirical sense. This is clear from Topic 9. 
 
 5.) WordCloud:
-There is no sufficient evidence that we can find about the difference about most used 
-words between two major parties in America right now. 
+In the Wordcloud, it is clear that the top five words that are being used for inaugural 
+speeches are the same for both parties. But, if you dig it deeper, the same analysis will 
+come up like in the 2 and 3. 
 
+6.) Limitations of the Modelling:
+- The biggest limitation of the model is that it assumes that the party's ideology is constant
+over time. For example, in the early time of the Democratic Party, the party supported 
+slavery and now, the Democratic Party represents the party that supports civil rights. 
 
+References:
+1.) Ellis, J. J. (2017, February 03). Founding Fathers. Retrieved January 31, 2018, from https://www.britannica.com/topic/Founding-Fathers#ref261052 
+2.) Micklethwait, J., & Wooldridge, A. (2015). The fourth revolution: the global race to reinvent the state. New York, NY: Penguin Books.
+3.) The Editors of Encyclopædia Britannica. (2017, December 14). Democratic Party. Retrieved January 31, 2018, from https://www.britannica.com/topic/Democratic-Party 
+4.) The Editors of Encyclopædia Britannica. (2018, January 05). Republican Party. Retrieved January 31, 2018, from https://www.britannica.com/topic/Republican-Party 
 
+Code Reference:
+1.) Wk2-Tutorial-TextMining. (n.d.). Retrieved January 30, 2018, from https://github.com/TZstatsADS/ADS_Teaching/blob/master/Tutorials/wk2-TextMining/doc/wk2-Tutorial-TextMining.Rmd
+
+2.) A: Interactive R Notebook. (n.d.). Retrieved January 31, 2018, from https://github.com/TZstatsADS/ADS_Teaching/blob/master/Tutorials/wk2-TextMining/doc/InteractiveWordCloud.Rmd 
 
 
 
